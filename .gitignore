@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.spec.bak
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Config (contains API keys)
+config.json
+**/config.json
+
+# Logs
+*.log
+**/*.log
+
+# Playwright / test artifacts
+.playwright-mcp/
+*.yml  # playwright snapshots, exclude from commits
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# PyInstaller artifacts
+*.manifest
+warn-*.txt
