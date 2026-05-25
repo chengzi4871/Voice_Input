@@ -3,7 +3,7 @@ import time
 
 from core.config_manager import ProfileConfig
 from core.logger import get_logger
-from core.text_input import send_unicode
+from core.text_input import send_text
 from core.windows_hotkey_hook import WindowsHotkeyHook
 
 
@@ -91,8 +91,8 @@ class HotkeyController:
             f"preview={text[:60]}..."
         )
         time.sleep(0.05)
-        send_unicode(text)
-        self._log.debug("Hotkey: input completed")
+        transport = send_text(text)
+        self._log.debug(f"Hotkey: input completed via {transport}")
 
     @property
     def is_recording(self) -> bool:
