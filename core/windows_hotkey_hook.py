@@ -317,10 +317,14 @@ class WindowsHotkeyHook:
         if not self._ready.wait(timeout=3.0):
             if self._thread_id is not None:
                 USER32.PostThreadMessageW(self._thread_id, WM_QUIT, 0, 0)
+            self._thread.join(timeout=1.0)
+            self._thread = None
+            self._thread_id = None
             self._stop_callback_thread()
             raise TimeoutError("Timed out while starting hotkey hook")
         if self._start_error is not None:
             self._thread = None
+            self._thread_id = None
             self._stop_callback_thread()
             raise self._start_error
 

@@ -110,6 +110,8 @@ class SettingsWindow:
         self._thinking_level_var: ctk.StringVar | None = None
         self._thinking_budget_var: ctk.StringVar | None = None
         self._auto_start_var: ctk.BooleanVar | None = None
+        self._log_level_var: ctk.StringVar | None = None
+        self._clipboard_apps_text: ctk.CTkTextbox | None = None
 
         self._api_key_showing = False
         self._api_key_entry: ctk.CTkEntry | None = None
@@ -157,10 +159,20 @@ class SettingsWindow:
             self._window = None
 
     def _build_ui(self):
+        tabview = ctk.CTkTabview(self._window)
+        tabview.pack(fill="both", expand=True, padx=4, pady=(4, 0))
+        tabview.add("基础设置")
+        tabview.add("高级设置")
+
         container = ctk.CTkScrollableFrame(
-            self._window, fg_color="transparent", label_text="",
+            tabview.tab("基础设置"), fg_color="transparent", label_text="",
         )
-        container.pack(fill="both", expand=True, padx=4, pady=4)
+        container.pack(fill="both", expand=True, padx=0, pady=0)
+
+        advanced = ctk.CTkScrollableFrame(
+            tabview.tab("高级设置"), fg_color="transparent", label_text="",
+        )
+        advanced.pack(fill="both", expand=True, padx=0, pady=0)
 
         title = ctk.CTkLabel(
             container, text="语音输入法 设置",
@@ -174,9 +186,9 @@ class SettingsWindow:
         self._build_proxy_section(container)
         self._build_base_url_section(container)
         self._build_profile_section(container)
-        self._build_log_section(container)
         self._build_auto_start_section(container)
-        self._build_buttons(container)
+        self._build_advanced_section(advanced)
+        self._build_buttons(self._window)
 
     def _section_label(self, parent, text):
         l = ctk.CTkLabel(parent, text=text, font=ctk.CTkFont(weight="bold"))
@@ -456,6 +468,49 @@ class SettingsWindow:
         ctk.CTkLabel(parent, text=f"日志文件: {log_path}", text_color="gray",
                      font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 8))
 
+    def _build_advanced_section(self, parent):
+        title = ctk.CTkLabel(
+            parent, text="高级设置",
+            font=ctk.CTkFont(size=20, weight="bold"),
+        )
+        title.pack(anchor="w", pady=(8, 12))
+
+        self._section_label(parent, "粘贴兼容应用")
+        self._section_hint(
+            parent,
+            "这些应用使用剪贴板粘贴文本，适合微信这类不兼容 Unicode 注入的输入框。每行一个进程名，留空表示禁用。",
+        )
+        self._clipboard_apps_text = ctk.CTkTextbox(
+            parent, height=90, font=ctk.CTkFont(size=11), wrap="none",
+        )
+        self._clipboard_apps_text.pack(fill="x", pady=(0, 8))
+        self._clipboard_apps_text.insert(
+            "1.0",
+            "\n".join(self._config.clipboard_app_names),
+        )
+
+        self._section_label(parent, "日志等级")
+        self._section_hint(
+            parent,
+            "默认关闭日志以保护隐私。开启 Debug 会记录转写预览，仅排查问题时使用。",
+        )
+        self._log_level_var = ctk.StringVar(value=self._config.log_level)
+        ctk.CTkOptionMenu(
+            parent,
+            values=["OFF", "ERROR", "WARNING", "INFO", "DEBUG"],
+            variable=self._log_level_var,
+            height=32,
+            font=ctk.CTkFont(size=11),
+        ).pack(fill="x", pady=(0, 4))
+
+        log_path = get_log_path() or "日志已关闭"
+        ctk.CTkLabel(
+            parent,
+            text=f"日志文件: {log_path}",
+            text_color="gray",
+            font=ctk.CTkFont(size=10),
+        ).pack(anchor="w", pady=(0, 8))
+
     def _build_auto_start_section(self, parent):
         self._auto_start_var = ctk.BooleanVar(value=self._config.auto_start)
         ctk.CTkCheckBox(parent, text="开机自动启动", variable=self._auto_start_var,
@@ -499,10 +554,27 @@ class SettingsWindow:
 
         self._config.profiles = self._profiles
         self._config.auto_start = self._auto_start_var.get()
+        self._config.clipboard_app_names = self._get_clipboard_app_names()
+        self._config.log_level = self._log_level_var.get().strip().upper()
 
         self._log.debug(f"设置: 保存配置, {len(self._profiles)} profiles, model={self._config.model}")
         self._on_save(self._config)
         self._on_close()
+
+    def _get_clipboard_app_names(self) -> list[str]:
+        raw_text = self._clipboard_apps_text.get("1.0", "end-1c")
+        names = []
+        seen = set()
+        for line in raw_text.replace(",", "\n").replace(";", "\n").splitlines():
+            name = line.strip().lower()
+            if not name:
+                continue
+            if "." not in name:
+                name = f"{name}.exe"
+            if name not in seen:
+                names.append(name)
+                seen.add(name)
+        return names
 
     def _cancel(self):
         self._on_cancel()

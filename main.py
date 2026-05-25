@@ -4,10 +4,11 @@ import threading
 import winreg
 import customtkinter as ctk
 from core.config_manager import ConfigManager, AppConfig
+from core.text_input import configure_clipboard_app_names
 from core.recorder import AudioRecorder
 from core.transcriber import GeminiTranscriber
 from core.hotkey_controller import HotkeyController
-from core.logger import setup_logging, get_logger
+from core.logger import setup_logging
 from ui.tray_icon import TrayIcon
 from ui.settings_window import SettingsWindow
 
@@ -17,11 +18,11 @@ REGISTRY_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 class VoiceInputApp:
     def __init__(self):
-        self._log = setup_logging()
-        self._log.info("Voice Input 应用初始化开始")
-
         self._config_manager = ConfigManager()
         cfg = self._config_manager.config
+        self._log = setup_logging(cfg.log_level)
+        configure_clipboard_app_names(cfg.clipboard_app_names)
+        self._log.info("Voice Input 应用初始化开始")
         self._log.debug(
             f"配置加载: model={cfg.model} "
             f"profiles={len(cfg.profiles)} "
@@ -236,7 +237,11 @@ class VoiceInputApp:
             thinking_budget=config.thinking_budget,
             profiles=config.profiles,
             auto_start=config.auto_start,
+            clipboard_app_names=config.clipboard_app_names,
+            log_level=config.log_level,
         )
+        self._log = setup_logging(config.log_level)
+        configure_clipboard_app_names(config.clipboard_app_names)
         self._transcriber.update_config(self._config_manager.config)
         self._hotkey_controller.update_profiles(config.profiles)
         self._set_auto_start(config.auto_start)

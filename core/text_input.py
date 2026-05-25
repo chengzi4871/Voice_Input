@@ -17,7 +17,7 @@ GMEM_MOVEABLE = 0x0002
 GMEM_ZEROINIT = 0x0040
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
-WECHAT_PROCESS_NAMES = {"wechat.exe", "weixin.exe"}
+_clipboard_app_names = {"wechat.exe", "weixin.exe"}
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -105,12 +105,21 @@ def send_text(text: str) -> str:
     if not text:
         return "none"
 
-    if is_wechat_foreground_window():
+    if should_use_clipboard_for_foreground_window():
         paste_unicode(text)
         return "clipboard"
 
     send_unicode(text)
     return "unicode"
+
+
+def configure_clipboard_app_names(app_names: list[str]):
+    global _clipboard_app_names
+    _clipboard_app_names = _normalize_app_names(app_names)
+
+
+def get_clipboard_app_names() -> list[str]:
+    return sorted(_clipboard_app_names)
 
 
 def send_unicode(text: str):
@@ -160,18 +169,51 @@ def paste_unicode(text: str, restore_delay: float = 0.2):
             pass
 
 
+def should_use_clipboard_for_foreground_window() -> bool:
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd:
+        return False
+
+    process_name = _get_window_process_name(hwnd)
+    if process_name in _clipboard_app_names:
+        return True
+
+    title = _get_window_text(hwnd)
+    class_name = _get_window_class_name(hwnd)
+    return _window_hint_matches_clipboard_app(title, class_name)
+
+
 def is_wechat_foreground_window() -> bool:
     hwnd = user32.GetForegroundWindow()
     if not hwnd:
         return False
 
     process_name = _get_window_process_name(hwnd)
-    if process_name in WECHAT_PROCESS_NAMES:
-        return True
-
     title = _get_window_text(hwnd)
     class_name = _get_window_class_name(hwnd)
-    return "微信" in title or class_name.startswith("WeChat")
+    return (
+        process_name in {"wechat.exe", "weixin.exe"}
+        or "微信" in title
+        or class_name.startswith("WeChat")
+    )
+
+
+def _normalize_app_names(app_names: list[str]) -> set[str]:
+    names = set()
+    for name in app_names:
+        normalized = os.path.basename(str(name).strip().lower())
+        if not normalized:
+            continue
+        if "." not in normalized:
+            normalized = f"{normalized}.exe"
+        names.add(normalized)
+    return names
+
+
+def _window_hint_matches_clipboard_app(title: str, class_name: str) -> bool:
+    if "wechat.exe" in _clipboard_app_names or "weixin.exe" in _clipboard_app_names:
+        return "微信" in title or class_name.startswith("WeChat")
+    return False
 
 
 def _get_window_process_name(hwnd) -> str:

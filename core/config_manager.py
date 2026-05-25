@@ -5,6 +5,10 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional
 
 
+DEFAULT_CLIPBOARD_APP_NAMES = ["wechat.exe", "weixin.exe"]
+DEFAULT_LOG_LEVEL = "OFF"
+
+
 @dataclass
 class HotkeyConfig:
     key: str = "x"
@@ -148,6 +152,10 @@ class AppConfig:
     profiles: list = field(default_factory=list)
     auto_start: bool = False
     first_run: bool = True
+    clipboard_app_names: list[str] = field(
+        default_factory=lambda: DEFAULT_CLIPBOARD_APP_NAMES.copy()
+    )
+    log_level: str = DEFAULT_LOG_LEVEL
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -167,13 +175,14 @@ class AppConfig:
 
     @classmethod
     def from_dict(cls, d: dict) -> "AppConfig":
-        hotkey_raw = d.pop("hotkey", "Alt+X")
+        data = dict(d)
+        hotkey_raw = data.pop("hotkey", "Alt+X")
         if isinstance(hotkey_raw, dict):
             hotkey = HotkeyConfig(**hotkey_raw)
         else:
             hotkey = HotkeyConfig.from_string(hotkey_raw)
 
-        profiles_raw = d.pop("profiles", None)
+        profiles_raw = data.pop("profiles", None)
         profiles = []
         if profiles_raw is None:
             profiles = [
@@ -192,7 +201,29 @@ class AppConfig:
                         hotkey=HotkeyConfig.from_string(p.get("hotkey", "Alt+X")),
                         system_prompt=p.get("system_prompt", ""),
                     ))
-        return cls(hotkey=hotkey, profiles=profiles, **d)
+        clipboard_app_names = data.pop(
+            "clipboard_app_names",
+            DEFAULT_CLIPBOARD_APP_NAMES.copy(),
+        )
+        if not isinstance(clipboard_app_names, list):
+            clipboard_app_names = DEFAULT_CLIPBOARD_APP_NAMES.copy()
+        clipboard_app_names = [
+            str(name).strip().lower()
+            for name in clipboard_app_names
+            if str(name).strip()
+        ]
+
+        log_level = str(data.pop("log_level", DEFAULT_LOG_LEVEL)).upper()
+        if log_level not in {"OFF", "ERROR", "WARNING", "INFO", "DEBUG"}:
+            log_level = DEFAULT_LOG_LEVEL
+
+        return cls(
+            hotkey=hotkey,
+            profiles=profiles,
+            clipboard_app_names=clipboard_app_names,
+            log_level=log_level,
+            **data,
+        )
 
 
 class ConfigManager:
